@@ -2,23 +2,31 @@ const { google } = require('googleapis');
 const Search = require('../models/search');
 const customsearch = google.customsearch('v1');
 
-const search = (req, res) => {
-  const term = req.params.term;
-  customsearch.cse.list({
+const customSearchOptions = (term, offset) => {
+  return {
     cx: process.env.SEARCH_ENGINE_ID,
     q: term,
-    auth: process.env.API_KEY
-  })
+    auth: process.env.API_KEY,
+    fileType: 'bmp, gif, png, jpg',
+    start: (offset - 1) * 10 + 1
+  };
+};
+
+const search = (req, res) => {
+  const { term } = req.params;
+  const offset = parseInt(req.query.offset) || 1;
+  customsearch.cse.list(options(term, offset))
     .then(response => response.data.items)
     .then(images => images.map(image => {
-      const imageUrl = image.pagemap.cse_image[0].src;
+      const imageJson = image.pagemap.cse_image || image.pagemap.imageobject; 
+      const imageUrl = imageJson[0].src || imageJson[0].url;
       return {
         imageUrl,
         pageUrl: image.link
       }
     }))
     .then(images => res.json(images))
-    .catch(err => res.json(err))
+    .catch(err => console.log(err) && res.json({error: 'something happens'}))
 };
 
 module.exports.search = search;
